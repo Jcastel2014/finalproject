@@ -48,9 +48,9 @@ func main() {
 	mux.HandleFunc("/set", setCookieHandler)
 	mux.HandleFunc("/get", getCookieHandler)
 
-	err := http.ListenAndServe(":3000", mux)
-
 	log.Print("starting server: 4000")
+
+	err := http.ListenAndServe(":3000", mux)
 
 	if err != nil {
 		log.Fatal(err)
