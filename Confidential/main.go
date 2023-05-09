@@ -14,39 +14,29 @@ import (
 	"strings"
 )
 
+// Confidential (encrypted) and tamper-proof cookies
 var secretKey []byte
 
 func WriteEncrypted(w http.ResponseWriter, cookie http.Cookie, secretKey []byte) error {
-	// Create a new AES cipher block from the secret key.
+
 	block, err := aes.NewCipher(secretKey)
 	if err != nil {
 		return err
 	}
 
-	// Wrap the cipher block in Galois Counter Mode.
 	aesGCM, err := cipher.NewGCM(block)
 	if err != nil {
 		return err
 	}
 
-	// Create a unique nonce containing 12 random bytes.
 	nonce := make([]byte, aesGCM.NonceSize())
 	_, err = io.ReadFull(rand.Reader, nonce)
 	if err != nil {
 		return err
 	}
 
-	// Prepare the plaintext input for encryption. Because we want to
-	// authenticate the cookie name as well as the value, we make this plaintext
-	// in the format "{cookie name}:{cookie value}". We use the : character as a
-	// separator because it is an invalid character for cookie names and
-	// therefore shouldn't appear in them.
 	plaintext := fmt.Sprintf("%s:%s", cookie.Name, cookie.Value)
 
-	// Encrypt the data using aesGCM.Seal(). By passing the nonce as the first
-	// parameter, the encrypted data will be appended to the nonce — meaning
-	// that the returned encryptedValue variable will be in the format
-	// "{nonce}{encrypted plaintext data}".
 	encryptedValue := aesGCM.Seal(nonce, nonce, []byte(plaintext), nil)
 
 	cookie.Value = string(encryptedValue)
@@ -55,58 +45,45 @@ func WriteEncrypted(w http.ResponseWriter, cookie http.Cookie, secretKey []byte)
 }
 
 func ReadEncrypted(r *http.Request, name string, secretKey []byte) (string, error) {
-	// Read the encrypted value from the cookie as normal.
+
 	encryptedValue, err := Read(r, name)
 	if err != nil {
 		return "", err
 	}
 
-	// Create a new AES cipher block from the secret key.
 	block, err := aes.NewCipher(secretKey)
 	if err != nil {
 		return "", err
 	}
 
-	// Wrap the cipher block in Galois Counter Mode.
 	aesGCM, err := cipher.NewGCM(block)
 	if err != nil {
 		return "", err
 	}
 
-	// Get the nonce size.
 	nonceSize := aesGCM.NonceSize()
 
-	// To avoid a potential 'index out of range' panic in the next step, we
-	// check that the length of the encrypted value is at least the nonce
-	// size.
 	if len(encryptedValue) < nonceSize {
 		return "", ErrInvalidValue
 	}
 
-	// Split apart the nonce from the actual encrypted data.
 	nonce := encryptedValue[:nonceSize]
 	ciphertext := encryptedValue[nonceSize:]
 
-	// Use aesGCM.Open() to decrypt and authenticate the data. If this fails,
-	// return a ErrInvalidValue error.
 	plaintext, err := aesGCM.Open(nil, []byte(nonce), []byte(ciphertext), nil)
 	if err != nil {
 		return "", ErrInvalidValue
 	}
 
-	// The plaintext value is in the format "{cookie name}:{cookie value}". We
-	// use strings.Cut() to split it on the first ":" character.
 	expectedName, value, ok := strings.Cut(string(plaintext), ":")
 	if !ok {
 		return "", ErrInvalidValue
 	}
 
-	// Check that the cookie name is the expected one and hasn't been changed.
 	if expectedName != name {
 		return "", ErrInvalidValue
 	}
 
-	// Return the plaintext cookie value.
 	return value, nil
 }
 
@@ -120,7 +97,7 @@ func main() {
 	mux.HandleFunc("/set", setCookieHandler)
 	mux.HandleFunc("/get", getCookieHandler)
 
-	log.Print("starting server: 4000")
+	log.Print("starting server: 3000")
 
 	err = http.ListenAndServe(":3000", mux)
 
@@ -205,4 +182,4 @@ func Read(r *http.Request, name string) (string, error) {
 	return string(value), nil
 }
 
-// echo "aE3mBcJ_iZnuOkTtCv6j0yvdM6FFo84xGdTBAiXexNOala7nkPK075wGB20bBHgwLd7d8Yhm" | base64url --decode
+// echo "Xb6Vm3TgRonh7eEBkwb-lCAIiIOJppBOQV0U-_EUiYkGomvXfB_302y4TgnP3G02NU_0Jyq7" | base64url --decode

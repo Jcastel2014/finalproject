@@ -1,11 +1,18 @@
-// Filename: main.go
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 )
+
+type User struct {
+	Name string
+	Age  int
+}
 
 func main() {
 	mux := http.NewServeMux()
@@ -20,9 +27,17 @@ func main() {
 }
 
 func setCookieHandler(w http.ResponseWriter, r *http.Request) {
+	user := User{Name: "Alice", Age: 30}
+	userJSON, err := json.Marshal(user)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	cookieValue := base64.URLEncoding.EncodeToString(userJSON)
 	cookie := http.Cookie{
-		Name:     "exampleCookie",
-		Value:    "Hello Zoë!",
+		Name:     "setCookie",
+		Value:    cookieValue,
 		Path:     "/",
 		MaxAge:   3600,
 		HttpOnly: true,
@@ -36,7 +51,7 @@ func setCookieHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getCookieHandler(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("exampleCookie")
+	cookie, err := r.Cookie("setCookie")
 	if err != nil {
 		switch {
 		case errors.Is(err, http.ErrNoCookie):
@@ -48,9 +63,19 @@ func getCookieHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte(cookie.Value))
+	userJSON, err := base64.URLEncoding.DecodeString(cookie.Value)
+	if err != nil {
+		http.Error(w, "invalid cookie", http.StatusBadRequest)
+		return
+	}
+
+	var user User
+	err = json.Unmarshal(userJSON, &user)
+	if err != nil {
+		http.Error(w, "invalid cookie", http.StatusBadRequest)
+		return
+	}
+
+	fmt.Fprintf(w, "Name: %q\n", user.Name)
+	fmt.Fprintf(w, "Age: %d\n", user.Age)
 }
-
-// curl -i http://localhost:3000/set
-
-// echo "" | base64url --decode
