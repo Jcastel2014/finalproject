@@ -49,10 +49,8 @@ func WriteEncrypted(w http.ResponseWriter, cookie http.Cookie, secretKey []byte)
 	// "{nonce}{encrypted plaintext data}".
 	encryptedValue := aesGCM.Seal(nonce, nonce, []byte(plaintext), nil)
 
-	// Set the cookie value to the encryptedValue.
 	cookie.Value = string(encryptedValue)
 
-	// Write the cookie as normal.
 	return Write(w, cookie)
 }
 
@@ -207,6 +205,4 @@ func Read(r *http.Request, name string) (string, error) {
 	return string(value), nil
 }
 
-
-
-echo "aE3mBcJ_iZnuOkTtCv6j0yvdM6FFo84xGdTBAiXexNOala7nkPK075wGB20bBHgwLd7d8Yhm" | base64url --decode
+// echo "aE3mBcJ_iZnuOkTtCv6j0yvdM6FFo84xGdTBAiXexNOala7nkPK075wGB20bBHgwLd7d8Yhm" | base64url --decode
